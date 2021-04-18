@@ -16,17 +16,9 @@ from kivy.clock import mainthread, Clock
 
 
 import json
-#Raspberry Pi Touchscreen:
 from kivy.config import Config
-Config.set('graphics', 'width', '800')
-Config.set('graphics', 'height', '480')
 
-
-
-
-	
-# 0 being off 1 being on as in true / false
-# you can use 0 or 1 && True or False
+Config.set('kivy', 'keyboard_mode', 'dock')
 Config.set('graphics', 'resizable', True)
 
 

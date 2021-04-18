@@ -1,0 +1,8 @@
+[Unit]
+Description=Bundabergmixer 9000 Touchscreen UI
+
+[Service]
+ExecStart=/home/pi/bundabergmixer_9000/start.sh
+
+[Install]
+WantedBy=multi-user.target
