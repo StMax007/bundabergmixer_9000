@@ -493,25 +493,38 @@ class SettingsNameContentsScreen(Screen):
         self.box_2_percentage.text = str(self.ventil_percentage[self.screen_site * 2 + 1]) + "%"
 
     def button_safe(self):
-        summe = sum(self.ventil_percentage)
-        if( summe == 100):
-            global json_data
+        global json_data
 
-            if(self.new == 0):
-                json_data['Drinks'].pop(self.cocktail_name_before)
+        summe = sum(self.ventil_percentage)
+        unique_name = 1 #wird ein neuer Cocktail angelegt, ist die Frage ob der Name neu ist, asonsten würde ein bereits vorhandener Cocktail überschrieben
+
+        if (self.new != 0):
+            if( self.cocktail_name.text in json_data['Drinks'].keys() ):
+                unique_name = 0
+
+        if( summe != 100 ):
+            self.frameworktext.text = "100% nicht gegeben"
+            self.frameworktext.color = 1, 0, 0, 1
+            print("100% nicht gegeben")
+        elif( unique_name == 0 ):
+            self.frameworktext.text = "Name schon vorhanden"
+            self.frameworktext.color = 1, 0, 0, 1
+            print("Name schon vorhanden")
+        else:
 
             json_temp = {'Bottle1': 12}
             json_temp.pop('Bottle1')
             for i in range(1, number_of_valves + 1):
                 json_temp['Bottle'+str(i)] = self.ventil_percentage[i-1]
+            
+            if(self.new == 0):
+                json_data['Drinks'] = collections.OrderedDict([(self.cocktail_name.text, v) if k == self.cocktail_name_before else (k, v) for k, v in json_data['Drinks'].items()])
+            
             json_data['Drinks'][self.cocktail_name.text] = json_temp
+            
             print(self.cocktail_name.text)
             print("abgeschlossen")
             self.parent.current = "settings_add_drink"
-        else:
-            self.frameworktext.text = "100% nicht gegeben"
-            self.frameworktext.color = 1, 0, 0, 1
-            print("100% nicht gegeben")
 
     def button_delete(self):
         global json_data
@@ -648,6 +661,9 @@ if __name__ == "__main__":
     global json_data
     with open('cocktail_data.json') as json_file:
         json_data = json.load(json_file)
+
+    import collections
+    json_data = collections.OrderedDict(json_data)
     global number_of_valves
     number_of_valves = json_data['Valves']
     global application
