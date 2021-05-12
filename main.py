@@ -436,7 +436,7 @@ class SettingsAddScreen(Screen):
     def on_pre_enter(self):
         print("on pre enter")
         self.update_drink_names()
-        self.button_left_down.text = "zurück"
+        self.button_left_down.text = "zurück & speichern"
 
     def drink_selected(self, text, id):
         print(text + " was pressed")
@@ -444,10 +444,10 @@ class SettingsAddScreen(Screen):
         id = self.screen_site * 4 + id - 1
         cocktail_configuration_selected[0] = id
         cocktail_configuration_selected[3] = text
-            
-        self.parent.current = 'settings_add_drink_content'
+        
         global application
         application.settings_add_drink_content.initialize(text, 0)
+        self.parent.current = 'settings_add_drink_content'
         #self.parent.transition.direction = 'left'
 
     def next_drinks_up(self):
@@ -469,6 +469,10 @@ class SettingsAddScreen(Screen):
         print("down")
 
     def settings(self):
+        #getränke speichern
+        global json_data
+        with open('cocktail_data.json', 'w') as outfile:
+            json.dump(json_data, outfile)
         self.parent.current = 'settings'
 
 
@@ -501,9 +505,9 @@ class SettingsAddScreen(Screen):
                 print("Fail")
 
     def add(self):
-        self.parent.current = 'settings_add_drink_content'
         global application
         application.settings_add_drink_content.initialize(0, 1)
+        self.parent.current = 'settings_add_drink_content'
 
         
 
@@ -538,7 +542,10 @@ class SettingsNameContentsScreen(Screen):
 
     def on_pre_enter(self):
         global cocktail_configuration_selected
-        self.frameworktext.text = "Einstellungen " + cocktail_configuration_selected[3]
+        if( self.new == 1):
+            self.frameworktext.text = "Einstellungen neues Getränk"
+        else:
+            self.frameworktext.text = "Einstellungen " + cocktail_configuration_selected[3]
         self.frameworktext.color = 1, 1, 1, 1
 
     def change_digits(self, box_id, sign_id, stop):   #sign_id = 2: plus, sign_id = 1: minus
@@ -894,6 +901,7 @@ if __name__ == "__main__":
 
     import collections
     json_data = collections.OrderedDict(json_data)
+    
     global number_of_valves
     number_of_valves = json_data['Valves']
     global application
