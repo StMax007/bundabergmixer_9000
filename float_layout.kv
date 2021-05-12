@@ -619,6 +619,20 @@
 		on_release:
 			root.button_selected(self.text, 3)
 
+	CocktailButton:
+		id: shutdown
+		text: "Ausschalten"
+		color: 1,1,1,1
+		background_color: 1, 0.31, 0, 1
+		
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.55, "top":0.45}
+
+		on_release:
+			root.button_selected(self.text, 2)
+
 	FrameworkButtonLeft:
 		text: "zurück"
 
@@ -729,6 +743,120 @@
 		color: 0, 0, 0, 0.8
 		pos_hint: {"x":0.05, "top":0.3}
 		size_hint: 0.9, 0.15
+
+	FrameworkButtonLeft:
+		text: "zurück"
+
+		on_release:
+			root.back()
+
+<PinChangeScreen>:
+	digit_first: digit_first
+	digit_second: digit_second
+	digit_third: digit_third
+	digit_fourth: digit_fourth
+	canvas.before:
+        Color:
+            rgba: 0.94, 0.94, 0.94, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+			
+	FrameworkLabel:
+		text: "Einmal Pin, bitte!"
+		
+
+	FrameworkLogo:
+        
+	StrengthButton:
+		text: "Neuer Pin:"
+		color: 0, 0, 0, 1
+		background_color: 1, 1, 1, 1
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.225, "top":0.72}
+		size_hint: 0.4, 0.1
+
+	CocktailButton:
+		text: ""
+		id: digit_first
+		background_color: 1, 1, 1, 1
+		pos_hint: {"x":0.25, "top":0.57}
+		size_hint: 0.08, 0.15
+
+	CocktailButton:
+		text: ""
+		id: digit_second
+		background_color: 1, 1, 1, 1
+		pos_hint: {"x":0.35, "top":0.57}
+		size_hint: 0.08, 0.15
+
+	CocktailButton:
+		text: ""
+		id: digit_third
+		background_color: 1, 1, 1, 1
+		pos_hint: {"x":0.45, "top":0.57}
+		size_hint: 0.08, 0.15
+
+	CocktailButton:
+		text: ""
+		id: digit_fourth
+		background_color: 1, 1, 1, 1
+		pos_hint: {"x":0.55, "top":0.57}
+		size_hint: 0.08, 0.15
+		
+	CocktailButton:
+		text: "1"
+		id: one
+		pos_hint: {"x":0.15, "top":0.4}
+		size_hint: 0.1, 0.15
+
+		on_release:
+			root.pin_input(1)
+
+	CocktailButton:
+		text: "2"
+		id: two
+
+		pos_hint: {"x":0.3, "top":0.4}
+		size_hint: 0.1, 0.15
+
+		on_release:
+			root.pin_input(2)
+
+	CocktailButton:
+		text: "3"
+		id: three
+
+		pos_hint: {"x":0.45, "top":0.4}
+		size_hint: 0.1, 0.15
+
+		on_release:
+			root.pin_input(3)
+
+	CocktailButton:
+		text: "4"
+		id: four
+
+		pos_hint: {"x":0.6, "top":0.4}
+		size_hint: 0.1, 0.15
+
+		on_release:
+			root.pin_input(4)
+
+	CocktailButton:
+		text: "enter"
+		id: enter
+		background_color: 0, 0.81, 0, 1
+		color: 1, 1, 1, 1
+		pos_hint: {"x":0.75, "top":0.4}
+		size_hint: 0.2, 0.15
+
+		on_release:
+			root.enter()
+
+	
 
 	FrameworkButtonLeft:
 		text: "zurück"
@@ -1083,6 +1211,293 @@
 		on_release:
 			root.button_delete()
 
+
+	FrameworkButtonLeft:
+		text: "zurück"
+
+		on_release:
+			root.button_back()
+
+<SelectVentilScreen>:
+	button1: cocktailbutton1
+	button2: cocktailbutton2
+	button3: cocktailbutton3
+	button4: cocktailbutton4
+	button_left_down: button_left_down
+	framework_text: framework_text
+	
+	canvas.before:
+        Color:
+            rgba: 0.94, 0.94, 0.94, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+			
+	FrameworkLabel:
+		id: framework_text
+		text: "Ventil auswählen"
+		
+
+	FrameworkLogo:
+
+
+		
+	CocktailButton:
+		text: "insert text"
+		id: cocktailbutton1
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.05, "top":0.7}
+
+		on_release:
+			root.drink_selected(self.text, 1)
+
+
+	CocktailButton:
+		id: cocktailbutton3
+		text: "insert text"
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.05, "top":0.45}
+
+		on_release:
+			root.drink_selected(self.text, 3)
+
+	CocktailButton:
+		id: cocktailbutton4
+		text: "insert text"
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.55, "top":0.45}
+
+		on_release:
+			root.drink_selected(self.text, 2)
+
+	CocktailButton:
+		id: cocktailbutton2
+		text: "insert text"
+		
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.55, "top":0.7}
+
+		on_release:
+			root.drink_selected(self.text, 4)
+
+	CocktailButton:
+		id: button_down
+		pos_hint: {"x":0.45, "top":0.25}
+		size_hint: 0.1, 0.15
+		on_release:
+			root.next_drinks_down()
+		Image:
+            source: 'arrow-down-sign-to-navigate.png'
+			y: self.parent.y + self.parent.height - 72
+            x: self.parent.x - 8
+			size_hint_y: None  # Tells the layout to ignore the size_hint in y dir
+    		height: dp(60)
+
+	CocktailButton:
+		id: button_up
+		pos_hint: {"x":0.45, "top":0.8}
+		size_hint: 0.1, 0.15
+		on_release:
+			root.next_drinks_up()
+		Image:
+            source: 'arrow-up-sign-to-navigate.png'
+			y: self.parent.y + self.parent.height - 65
+            x: self.parent.x - 8
+			size_hint_y: None  # Tells the layout to ignore the size_hint in y dir
+    		height: dp(60)
+			
+
+
+	FrameworkButtonLeft:
+		id: button_left_down
+		text: "zurück"
+		on_release:
+			root.back()
+
+
+<SettingsCleanScreen>:
+
+	drinks: drinks
+	cleaning: cleaning
+
+	canvas.before:
+        Color:
+            rgba: 0.94, 0.94, 0.94, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+			
+	FrameworkLabel:
+		text: "Reinigung"
+		
+
+	FrameworkLogo:
+        
+
+		
+	CocktailButton:
+		text: "Gefäß leeren"
+		id: drinks
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.05, "top":0.7}
+
+		on_release:
+			root.button_selected(self.text, 1)
+
+
+
+	CocktailButton:
+		id: cleaning
+		text: "Durchspülen"
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.55, "top":0.7}
+
+		on_release:
+			root.button_selected(self.text, 2)
+
+	
+
+	FrameworkButtonLeft:
+		text: "zurück"
+
+		on_release:
+			root.back()
+
+<EmptyBottleScreen>:
+	canvas.before:
+        Color:
+            rgba: 0.94, 0.94, 0.94, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+	frameworktext: frameworktext
+	buttonok: buttonok
+	infotext: infotext
+
+
+	canvas.before:
+        Color:
+            rgba: 0.94, 0.94, 0.94, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+			
+	FrameworkLabel:
+		id: frameworktext
+		text: "Drink leeren"
+		
+
+	FrameworkLogo:
+
+
+	
+	StrengthButton:
+		text: "Sobald du auf den Knopf unten drückst,\nöffnen sich das Ventil für dein Ausgewähltes\nGefäß. Dann läuft die Flüssigkeit unten heraus.\nDu kannst sie aufsammeln und bei der\nnächsten Party wieder einfüllen"
+		id: infotext
+		color: 0, 0, 0, 1
+		background_color: 1, 1, 1, 1
+		font_size: 32
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.05, "top":0.775}
+		size_hint: 0.9, 0.5
+
+
+	
+
+	StrengthButton:
+		text: "Ok"
+		id: buttonok
+		
+		background_color: 0, 0.81, 0, 1
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.5, "top":0.25}
+
+		size_hint: 0.4, 0.2
+
+		on_release:
+			root.button_ok()
+
+	FrameworkButtonLeft:
+		text: "zurück"
+
+		on_release:
+			root.button_back()
+
+<EmptyAllBottleScreen>:
+	canvas.before:
+        Color:
+            rgba: 0.94, 0.94, 0.94, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+	frameworktext: frameworktext
+	buttonok: buttonok
+	infotext: infotext
+
+
+	canvas.before:
+        Color:
+            rgba: 0.94, 0.94, 0.94, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+			
+	FrameworkLabel:
+		id: frameworktext
+		text: "Party vorbei?"
+		
+
+	FrameworkLogo:
+
+
+	
+	StrengthButton:
+		text: "Der morgen danach … eklig, aber da muss man\ndurch. Sobald du auf den Knopf untendrückst,\nöffnen sich alle Ventile. Dann kannst du\nalle Flaschen und Leitungen mit Wasser\ndurchspülen.\nTipp: Leere davor alle Gefäße mit dem\nMenüpunkt \"Gefäß leeren\""
+		id: infotext
+		color: 0, 0, 0, 1
+		background_color: 1, 1, 1, 1
+		font_size: 32
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.05, "top":0.775}
+		size_hint: 0.9, 0.5
+
+
+	
+
+	StrengthButton:
+		text: "Ok"
+		id: buttonok
+		
+		background_color: 0, 0.81, 0, 1
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.5, "top":0.25}
+
+		size_hint: 0.4, 0.2
+
+		on_release:
+			root.button_ok()
 
 	FrameworkButtonLeft:
 		text: "zurück"

@@ -16,6 +16,10 @@ from kivy.clock import mainthread, Clock
 
 
 import json
+import sched, time
+from functools import partial
+#from gpiozero import LED
+
 from kivy.config import Config
 
 Config.set('kivy', 'keyboard_mode', 'dock')
@@ -32,6 +36,11 @@ defined_pin = 1234
 
 global json_data
 
+def shutdown():
+    print("shutdown")
+    #from subprocess import call
+    #call("sudo nohup shutdown -h now", shell=True)
+
 #<----------------- GPIO-Controlling ---------------------->
 def mix_drink():
     global cocktail_configuration_selected
@@ -45,17 +54,58 @@ def mix_drink():
              }
     glass_size = cocktail_sizes.get(cocktail_configuration_selected[2])
 
+    amount = list()
     try:
         for i in range(1, len(json_data['Drinks'][drink_name]) + 1):
             percentage = json_data['Drinks'][drink_name]['Bottle'+str(i)]
-            amount = (int(percentage) / 100) * glass_size
-            pump_drink(i, amount)
+            amount.append( (int(percentage) / 100) * glass_size )
+            pump_drink(i, amount[-1])
+            if(amount[-1] > 0):                 #hier werden alle benötigten Pumpen aktiviert
+                pump_adc(i-1, 1)
+        time_start = time.time()
+        Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
+        
+        # s = sched.scheduler(time.time, time.sleep)
+        # s.enter(0.5, 1, pump_drink_adc, argument=(amount,time_start, s))  #alle 10 Sekunden wurd pump_drink_adc ausgeführt
+        # s.run()
+        #pump_drink_adc(amount)
     except:
         print("Drink not found")
 
 
 def pump_drink(pump_number, milliliter):
     print("Pumpe" + str(pump_number) + " mit " + str(milliliter) + " Milliliter")
+
+def pump_drink_adc(amount, time_start, test):     #hier wird überprüft ob eine Pumpe ausgeschaltet werden muss
+    time_diff = time.time() - time_start
+    ventil_factor = 0.5   #Faktor, der aus einer Zeit die Amount of Milliliter errechnet --> muss mit den Ventilen erarbeitet werden wie groß der Faktor ist
+    amount_flowed = time_diff / ventil_factor
+    while(min(amount) <= amount_flowed):
+        ventil_nummer = amount.index( min(amount) ) #Ventil Nummer mit dem geringsten Amount, Anfangend bei 0
+        pump_adc(ventil_nummer, 0)
+        del amount[ventil_nummer]
+        if not amount:      #wenn Liste amount leer ist
+            print("Auf StartBildschirm zurück!")        #! Ändern
+            break
+    if amount:
+        Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
+        #s.enter(0.5, 1, pump_drink_adc, argument=(amount,time_start, s))  #alle 0.5 Sekunden wurd pump_drink_adc ausgeführt
+        #s.run()   
+    return 1
+
+def pump_adc(pump_number, on_off):
+    print("Ventil: " + str(pump_number) + " Zustand: " + str(on_off))   
+    try:
+        #led = LED(17)
+        if(on_off == 1):
+            print("on")
+            #led.on()
+        else:
+            print("off")
+            #led.off()
+    except:
+        print("Fehler")
+    
 
 #<----------------- Kivy-GUI ---------------------->
 # creating the root widget used in .kv file
@@ -248,6 +298,15 @@ class SettingsScreen(Screen):
         if (id == 1):
             self.parent.current = 'settings_add_drink'
 
+        if (id == 2):
+            shutdown()
+
+        if (id == 3):
+            self.parent.current = 'settings_change_pin'
+
+        if (id == 4):
+            self.parent.current = 'settings_clean'
+
     def back(self):
         self.parent.current = 'menu'
 
@@ -303,6 +362,60 @@ class PinInputScreen(Screen):
 
     def back(self):
         self.parent.current = 'menu'
+
+    def on_pre_enter(self):
+        self.pin_value_input = 0
+        self.pins_inserted = 0
+
+class PinChangeScreen(Screen):
+    pin_value_input = 0
+    pins_inserted = 0
+    digit_first = ObjectProperty(None)
+    digit_second = ObjectProperty(None)
+    digit_third = ObjectProperty(None)
+    digit_fourth = ObjectProperty(None)
+    pass
+
+    def pin_input(self, number):
+        print(number)
+        if self.pins_inserted < 4:
+            self.pin_value_input = self.pin_value_input*10 + number
+            self.pins_inserted = self.pins_inserted + 1
+            self.increase_digits()
+
+    def increase_digits(self):
+        if self.pins_inserted > 0:
+            self.digit_first.text = str( int( self.pin_value_input / (10**(self.pins_inserted-1) ) % 10) )
+        else:
+            self.digit_first.text = ''
+            self.digit_second.text = ''
+            self.digit_third.text = ''
+            self.digit_fourth.text = ''
+
+        if self.pins_inserted > 1:
+            self.digit_second.text = str( int( self.pin_value_input / (10**(self.pins_inserted-2) ) % 10) )
+        if self.pins_inserted > 2:
+            self.digit_third.text = str( int( self.pin_value_input / (10**(self.pins_inserted-3) ) % 10) )
+        if self.pins_inserted > 3:
+            self.digit_fourth.text = str( int( self.pin_value_input / (10**(self.pins_inserted-4) ) % 10) )
+
+    def enter(self):
+        global defined_pin
+        defined_pin = self.pin_value_input
+        print("Neuer Pin: " + str( defined_pin ) )
+        self.parent.current = 'settings'
+
+
+    def back(self):
+        self.parent.current = 'settings'
+
+    def on_pre_enter(self):
+        self.digit_first.text = ''
+        self.digit_second.text = ''
+        self.digit_third.text = ''
+        self.digit_fourth.text = ''
+        self.pin_value_input = 0
+        self.pins_inserted = 0
 
 
 class SettingsAddScreen(Screen):
@@ -561,56 +674,159 @@ class SettingsNameContentsScreen(Screen):
         self.box_2_percentage.text = str(self.ventil_percentage[1]) + "%"
 
 
-        
-        
+class SettingsCleanScreen(Screen):
+    drinks = ObjectProperty(None)
+    cleaning = ObjectProperty(None)
+    pass
 
-class RoundedBox(Widget):
-    corners = ListProperty([0, 0, 0, 0])
-    line_width = NumericProperty(1)
-    resolution = NumericProperty(100)
-    points = ListProperty([])
+    def button_selected(self, text, id):
+        print(text + " was pressed")
+        if (id == 1):
+            self.parent.current = 'settings_chose_ventil'
 
-    def compute_points(self, *args):
-        self.points = []
-        a = - pi
+        if (id == 2):
+            self.parent.current = 'settings_empty_all_bottle'
 
-        x = self.x + self.corners[0]
-        y = self.y + self.corners[0]
-        while a < - pi / 2.:
-            a += pi / self.resolution
-            self.points.extend([
-                x + cos(a) * self.corners[0],
-                y + sin(a) * self.corners[0]
-                ])
+    def back(self):
+        self.parent.current = 'settings'
 
-        x = self.right - self.corners[1]
-        y = self.y + self.corners[1]
-        while a < 0:
-            a += pi / self.resolution
-            self.points.extend([
-                x + cos(a) * self.corners[1],
-                y + sin(a) * self.corners[1]
-                ])
+class SelectVentilScreen(Screen):     
+    button1 = ObjectProperty(None)
+    button2 = ObjectProperty(None)
+    button3 = ObjectProperty(None)
+    button4 = ObjectProperty(None)
+    container = ObjectProperty(None)
+    button_left_down = ObjectProperty(None)
+    framework_text = ObjectProperty(None)
 
-        x = self.right - self.corners[2]
-        y = self.top - self.corners[2]
-        while a < pi / 2.:
-            a += pi / self.resolution
-            self.points.extend([
-                x + cos(a) * self.corners[2],
-                y + sin(a) * self.corners[2]
-                ])
+    screen_site = 0    #Seite auf welcher sich der Bildschrim befindet (Wenn In der Liste hoch oder runter gescrollt wird)
 
-        x = self.x + self.corners[3]
-        y = self.top - self.corners[3]
-        while a < pi:
-            a += pi / self.resolution
-            self.points.extend([
-                x + cos(a) * self.corners[3],
-                y + sin(a) * self.corners[3]
-                ])
+    selecter_settings_drinks_screen = 0
+    pass
 
-        self.points.extend(self.points[:2])
+    def drink_selected(self, text, id):
+        print(text + " was pressed")
+        ventil_selected = [int(s) for s in text.split() if s.isdigit()][0]  #Ventil Nummer aus text extrahieren
+        global application
+        application.setting_empty_bottle.ventil_number = ventil_selected
+        self.parent.current = 'setting_empty_bottle'
+
+
+    def next_drinks_up(self):
+        number_of_drinks = pump_numbers
+        if (self.screen_site == 0):
+            self.screen_site = round(0.49 + (number_of_drinks / 4) )- 1
+        else:
+            self.screen_site -= 1
+        self.update_drink_names()
+        print("up")
+
+    def next_drinks_down(self):
+        number_of_drinks = pump_numbers
+        if(self.screen_site == (round(0.49 + (number_of_drinks / 4) )- 1) ):
+            self.screen_site = 0
+        else:
+            self.screen_site += 1
+        self.update_drink_names()
+        print("down")
+
+    def back(self):
+        self.parent.current = 'settings_clean'
+        #self.parent.transition.direction = 'left'
+
+
+
+
+    def update_drink_names(self):
+        global json_data
+
+        cocktail_names = ["Ventil " + str(i) for i in range(1, pump_numbers + 1)]
+
+        cocktails_number = 4 * self.screen_site
+        menu_screens = [self.button1, self.button2, self.button3, self.button4]
+        for i in menu_screens:
+            i.text = ""
+            i.disabled = True
+
+        if((len(cocktail_names)-cocktails_number)> 3):
+            cocktails_number_max = 3
+        else:
+            cocktails_number_max = len(cocktail_names) - cocktails_number - 1
+        for i in range(0, cocktails_number_max + 1):
+            menu_screens[i].text = cocktail_names[i+cocktails_number]
+            menu_screens[i].disabled = False
+
+    def on_pre_enter(self):
+        self.update_drink_names()
+
+
+class EmptyBottleScreen(Screen):
+    frameworktext = ObjectProperty(None)
+    buttonok = ObjectProperty(None)
+    ventil_number = 0
+    on_off = 0
+    pass
+
+    def button_back(self):
+        self.on_off = 0
+        self.set_pump()
+        self.parent.current = 'settings_chose_ventil'
+
+    def button_ok(self):
+        print("ventil gedrückt")
+        if(self.on_off == 0):
+            self.on_off = 1
+            self.buttonok.text = "Ventil " + str(self.ventil_number) + " schließen"
+            self.buttonok.background_color = (1, 0.31, 0, 1)
+        else:
+            self.on_off = 0
+            self.buttonok.text = "Ventil " + str(self.ventil_number) + " öffnen"
+            self.buttonok.background_color = (0, 0.81, 0, 1)
+        self.set_pump()
+    
+    def set_pump(self):
+        pump_adc(self.ventil_number, self.on_off)
+
+    def on_pre_enter(self):
+        if(self.on_off == 0):
+            self.buttonok.text = "Ventil " + str(self.ventil_number) + " öffnen"
+        else:
+            self.buttonok.text = "Ventil " + str(self.ventil_number) + " schließen"
+
+class EmptyAllBottleScreen(Screen):
+    frameworktext = ObjectProperty(None)
+    buttonok = ObjectProperty(None)
+    on_off = 0
+    pass
+
+    def button_back(self):
+        #self.parent.transition.direction = 'right'
+        self.on_off = 0
+        self.set_pumps()
+        self.parent.current = 'settings_clean'
+
+    def button_ok(self):
+        print("ventil gedrückt")
+        if(self.on_off == 0):
+            self.on_off = 1
+            self.buttonok.text = "Ventile schließen"
+            self.buttonok.background_color = (1, 0.31, 0, 1)
+        else:
+            self.on_off = 0
+            self.buttonok.text = "Ventile öffnen"
+            self.buttonok.background_color = (0, 0.81, 0, 1)
+        self.set_pumps()
+
+    def set_pumps(self):
+        [pump_adc(i, self.on_off) for i in range(1, pump_numbers + 1)]
+
+    def on_pre_enter(self):
+        if(self.on_off == 0):
+            self.buttonok.text = "Ventile öffnen"
+        else:
+            self.buttonok.text = "Ventile schließen"
+
+
 
 class Float_LayoutApp(App):
     menu_screen = 0
@@ -620,6 +836,10 @@ class Float_LayoutApp(App):
     filling_screen = 0
     settings_screen = 0
     settings_add_drink = 0
+    pin_change = 0
+    settings_clean = 0
+    setting_empty_bottle = 0
+    settings_empty_all_bottle = 0
 
     def build(self):
         # Create the screen manager
@@ -634,6 +854,11 @@ class Float_LayoutApp(App):
         self.pin_input = PinInputScreen(name="pin_input")
         self.settings_add_drink = SettingsAddScreen(name="settings_add_drink")
         self.settings_add_drink_content = SettingsNameContentsScreen(name="settings_add_drink_content")
+        self.pin_change = PinChangeScreen(name='settings_change_pin')
+        self.settings_clean = SettingsCleanScreen(name='settings_clean')
+        self.settings_clean_ventil = SelectVentilScreen(name='settings_chose_ventil')
+        self.setting_empty_bottle = EmptyBottleScreen(name='setting_empty_bottle')
+        self.settings_empty_all_bottle = EmptyAllBottleScreen(name='settings_empty_all_bottle')
 
         sm = ScreenManager(transition=FadeTransition(clearcolor=[0, 0, 0, 1], duration=0.25)) #ScreenManager(transition=SlideTransition())
         sm.add_widget(self.menu_screen)
@@ -646,6 +871,11 @@ class Float_LayoutApp(App):
         sm.add_widget(self.pin_input)
         sm.add_widget(self.settings_add_drink)
         sm.add_widget(self.settings_add_drink_content)
+        sm.add_widget(self.pin_change)
+        sm.add_widget(self.settings_clean)
+        sm.add_widget(self.setting_empty_bottle)
+        sm.add_widget(self.settings_empty_all_bottle)
+        sm.add_widget(self.settings_clean_ventil)
         
 
         return sm
