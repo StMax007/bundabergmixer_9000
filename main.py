@@ -36,6 +36,9 @@ defined_pin = 1234
 
 global json_data
 
+global abort_drink
+abort_drink = 0 # ist 1, wenn beim abfüllen des Getränks auf Abbrechen gedrückt wird
+
 def shutdown():
     print("shutdown")
     #from subprocess import call
@@ -58,9 +61,9 @@ def mix_drink():
     try:
         for i in range(1, len(json_data['Drinks'][drink_name]) + 1):
             percentage = json_data['Drinks'][drink_name]['Bottle'+str(i)]
-            amount.append( (int(percentage) / 100) * glass_size )
+            amount.append([(int(percentage) / 100) * glass_size, i] )   #2-Diemsnionale Liste bestehen aus der Menge am Anfang und der Pumpennummer anschließend
             pump_drink(i, amount[-1])
-            if(amount[-1] > 0):                 #hier werden alle benötigten Pumpen aktiviert
+            if(amount[-1][0] > 0):                 #hier werden alle benötigten Pumpen aktiviert
                 pump_adc(i-1, 1)
         time_start = time.time()
         Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
@@ -77,20 +80,28 @@ def pump_drink(pump_number, milliliter):
     print("Pumpe" + str(pump_number) + " mit " + str(milliliter) + " Milliliter")
 
 def pump_drink_adc(amount, time_start, test):     #hier wird überprüft ob eine Pumpe ausgeschaltet werden muss
-    time_diff = time.time() - time_start
-    ventil_factor = 0.5   #Faktor, der aus einer Zeit die Amount of Milliliter errechnet --> muss mit den Ventilen erarbeitet werden wie groß der Faktor ist
-    amount_flowed = time_diff / ventil_factor
-    while(min(amount) <= amount_flowed):
-        ventil_nummer = amount.index( min(amount) ) #Ventil Nummer mit dem geringsten Amount, Anfangend bei 0
-        pump_adc(ventil_nummer, 0)
-        del amount[ventil_nummer]
-        if not amount:      #wenn Liste amount leer ist
-            print("Auf StartBildschirm zurück!")        #! Ändern
-            break
-    if amount:
-        Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
-        #s.enter(0.5, 1, pump_drink_adc, argument=(amount,time_start, s))  #alle 0.5 Sekunden wurd pump_drink_adc ausgeführt
-        #s.run()   
+    global abort_drink
+    if(abort_drink == 0):
+        time_diff = time.time() - time_start
+        ventil_factor = 0.1   #Faktor, der aus einer Zeit die Amount of Milliliter errechnet --> muss mit den Ventilen erarbeitet werden wie groß der Faktor ist
+        amount_flowed = time_diff / ventil_factor
+        amount_extracted = [i[0] for i in amount]
+        while(min(amount_extracted) <= amount_flowed):
+            row_min = amount_extracted.index( min(amount_extracted) )
+            ventil_nummer = amount[row_min][1] #Ventil Nummer mit dem geringsten Amount, Anfangend bei 0
+            pump_adc(ventil_nummer, 0)
+            del amount[row_min]
+            if not amount:      #wenn Liste amount leer ist
+                print("Auf StartBildschirm zurück!")        #! Ändern
+                break
+            amount_extracted = [i[0] for i in amount]
+        if amount:
+            Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
+            #s.enter(0.5, 1, pump_drink_adc, argument=(amount,time_start, s))  #alle 0.5 Sekunden wurd pump_drink_adc ausgeführt
+            #s.run()
+        else:
+            global application
+            application.filling_screen.filled_succesfull(1)
     return 1
 
 def pump_adc(pump_number, on_off):
@@ -234,7 +245,7 @@ class AlcoholStrengthScreen(Screen):
 
     def on_pre_enter(self):
         global cocktail_configuration_selected
-        self.frameworktext.text = "Wie willst du dein " + cocktail_configuration_selected[3] + "?"
+        self.frameworktext.text = "    Wie willst du dein " + cocktail_configuration_selected[3] + "?"
 
 
 class ConfirmationScreen(Screen):
@@ -252,8 +263,8 @@ class ConfirmationScreen(Screen):
     def button_ok(self):
         print("los gehts!")
         #self.parent.transition.direction = 'left'
-        #self.parent.current = 'submenu4'
         mix_drink()
+        self.parent.current = 'submenu4'
 
     def set_selected_cocktail_settings(self):
         global cocktail_configuration_selected
@@ -282,10 +293,50 @@ class ConfirmationScreen(Screen):
 
 class FillingScreen(Screen):
     frameworktext = ObjectProperty(None)
+    abort = ObjectProperty(None)
+    image = ObjectProperty(None)
+    filled_is_finished = 0
     pass
 
-    def update_text(self, text):
-        self.frameworktext = text
+    def button_abort(self):
+        global abort_drink
+        abort_drink = 1
+        [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
+        self.frameworktext.text = "Abbruch"
+        Clock.schedule_once(partial(self.back_to_home), 2)  #durch aktive Interrupts (alle 0.5 Sekunden) kann es passieren, dass ein Getränk wieder eingeschaltet wird. Daher muss hier für 2 Sekunden abort_drink auf 1 bleiben
+        print("Abbrechen")
+
+    def abort_second_time(self):
+        [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
+        global abort_drink
+        abort_drink = 0
+        self.back_to_home()
+    
+    def filled_succesfull(self, status):
+        self.filled_is_finished = status
+
+    def filled_finished(self, example):
+        if(self.filled_is_finished == 1):
+            self.image.source = 'cheers.gif'
+            self.frameworktext.text = "Cheers!"
+            self.filled_is_finished = 0
+            self.abort.opacity = 0
+            Clock.schedule_once(partial(self.back_to_home), 10)
+        else:
+            Clock.schedule_once(partial(self.filled_finished), 1)
+
+    def back_to_home(self, example):
+        self.parent.current = 'menu'
+
+    def on_pre_enter(self):
+        global cocktail_configuration_selected
+        self.frameworktext.text = cocktail_configuration_selected[3] + " wird zubereitet"
+        self.image.source = 'party_hard.jpg'
+        self.abort.opacity = 1
+        Clock.schedule_once(partial(self.filled_finished), 1)
+
+
+
 
 class SettingsScreen(Screen):
     drinks = ObjectProperty(None)
@@ -309,6 +360,7 @@ class SettingsScreen(Screen):
 
     def back(self):
         self.parent.current = 'menu'
+        
 
 class PinInputScreen(Screen):
     pin_value_input = 0
@@ -901,7 +953,7 @@ if __name__ == "__main__":
 
     import collections
     json_data = collections.OrderedDict(json_data)
-    
+
     global number_of_valves
     number_of_valves = json_data['Valves']
     global application

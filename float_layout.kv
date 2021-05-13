@@ -177,7 +177,7 @@
 			
 	FrameworkLabel:
 		id: framework_text
-		text: "Howdy, was willst du trinken?"
+		text: "     Howdy, was willst du trinken?"
 		
 
 	FrameworkLogo:
@@ -302,7 +302,7 @@
 			
 	FrameworkLabel:
 		id: frameworktext
-		text: "Wie willst du dein "
+		text: "    Wie willst du dein "
 		
 
 	FrameworkLogo:
@@ -451,7 +451,7 @@
 			
 	FrameworkLabel:
 		id: frameworktext
-		text: "Alles klar, kann es los gehen?"
+		text: "    Alles klar, kann es los gehen?"
 		
 
 	FrameworkLogo:
@@ -494,6 +494,7 @@
 
 	StrengthButton:
 		text: "Stelle deinen Becher hin und drücke auf ok"
+		font_size: 30
 		color: 0, 0, 0, 1
 		background_color: 1, 1, 1, 1
 
@@ -524,8 +525,6 @@
 		on_release:
 			root.button_back()
 
-
-
 <FillingScreen>:
 	canvas.before:
         Color:
@@ -534,7 +533,10 @@
             pos: self.pos
             size: self.size
 
+	abort: abort
+	image: image
 	frameworktext: frameworktext
+
 
 	canvas.before:
         Color:
@@ -545,19 +547,38 @@
 			
 	FrameworkLabel:
 		id: frameworktext
-		text: "frameworktext"
+		text: "Getränk wird zubereitet"
 		
 
 	FrameworkLogo:
 
+
 	Image:
+		id: image
 		source: 'party_hard.jpg'
 	
-
-		pos_hint: {"x":0, "top":0.9}
-
-
+		pos_hint: {"x":0.2, "top":0.9}
 		size: 0.6, 0.8
+		size_hint: 0.6, 0.8
+		allow_stretch: True
+
+	
+
+	StrengthButton:
+		text: "Abbrechen"
+		id: abort
+		
+		color: 1, 1, 1, 1
+		background_color: 1, 0.31, 0, 1
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.5, "top":0.2}
+
+		size_hint: 0.4, 0.2
+
+		on_release:
+			root.button_abort()
+
 
 
 
