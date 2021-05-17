@@ -1,4 +1,5 @@
 #pip install kivy
+from os import terminal_size
 import kivy
 from kivy.app import App
 from kivy.uix.floatlayout import FloatLayout
@@ -20,14 +21,20 @@ import sched, time
 from functools import partial
 
 #!<-------- Raspberry-Pi specific ------------->!
-import RPi.GPIO as GPIO
+try:
+    import RPi.GPIO as GPIO
+except:
+    print("cant import GPIO")
 
 def GPIO_init():
-    GPIO.setmode(GPIO.BOARD)
-    
-    GPIO_pump = [29, 31, 33, 35, 37, 40] #definieren der GPIOs, an welchen die Pumpen angeschlossen sind
-    [GPIO.setup(i,GPIO.OUT) for i in GPIO_pump] 
-    [GPIO.output(i,False) for i in GPIO_pump]
+    try:
+        GPIO.setmode(GPIO.BOARD)
+        
+        GPIO_pump = [29, 31, 33, 35, 37, 40] #definieren der GPIOs, an welchen die Pumpen angeschlossen sind
+        [GPIO.setup(i,GPIO.OUT) for i in GPIO_pump] 
+        [GPIO.output(i,False) for i in GPIO_pump]
+    except:
+        print("cant Init GPIOs")
 
 #!<-------------------------------------------->!
 
@@ -37,7 +44,6 @@ Config.set('kivy', 'keyboard_mode', 'dock')
 Config.set('graphics', 'resizable', True)
 
 
-pump_numbers = 6
 
 global cocktail_configuration_selected
 cocktail_configuration_selected = [None] * 4  #[0]: ausgewählte cocktail id; [1]: ausgewaehlte cocktailstärke, [2]: ausgewählte glass größe, [3]: Cocktail-Name
@@ -47,19 +53,27 @@ defined_pin = 1234
 
 global json_data
 
+global number_of_valves
+number_of_valves = 6
+
 global abort_drink
 abort_drink = 0 # ist 1, wenn beim abfüllen des Getränks auf Abbrechen gedrückt wird
 
 def shutdown():
+    global number_of_valves
     print("shutdown")
-    [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
+    [pump_adc(i, 0) for i in range(1, number_of_valves + 1)]
     from subprocess import call
     call("sudo nohup shutdown -h now", shell=True)
+
+def safe_json():
+    #code zum speichern der Json-Datei
+    print("json safed 873265")
 
 #<----------------- GPIO-Controlling ---------------------->
 def mix_drink():
     global cocktail_configuration_selected
-    global json_data
+    global json_data, number_of_valves
     drink_name = cocktail_configuration_selected[3]
 
     cocktail_sizes={
@@ -67,16 +81,32 @@ def mix_drink():
                 2: 300,
                 3: 350
              }
+    alcohol_factors = {
+        1: 0.5,
+        2: 1,
+        3: 2
+    }
     glass_size = cocktail_sizes.get(cocktail_configuration_selected[2])
+    alcohol_factor = alcohol_factors.get(cocktail_configuration_selected[1])
 
     amount = list()
     try:
-        for i in range(1, len(json_data['Drinks'][drink_name]) + 1):
+        valve_names = json_data['Valves']['ValveConfig'].keys()
+        is_alcohol = [ json_data['Valves']['ValveConfig'][i]['Alcohol'] for i in valve_names]    #checken in welchen Ventilen Alkohol ist, um die Stärke anzupassen
+
+        for i in range(1, number_of_valves + 1):
             percentage = json_data['Drinks'][drink_name]['Bottle'+str(i)]
-            amount.append([(int(percentage) / 100) * glass_size, i] )   #2-Diemsnionale Liste bestehen aus der Menge am Anfang und der Pumpennummer anschließend
+            volume = (int(percentage) / 100) * glass_size
+            if(is_alcohol[i-1]):
+                volume = volume * alcohol_factor
+            amount.append([volume, i] )   #2-Diemsnionale Liste bestehen aus der Menge am Anfang und der Pumpennummer anschließend
             pump_drink(i, amount[-1])
             if(amount[-1][0] > 0):                 #hier werden alle benötigten Pumpen aktiviert
                 pump_adc(i-1, 1)
+
+        for i in range(0, number_of_valves):# Die Milliliter, die aus den Getränken fliesen werden aus der json_config pro Getränk raus gerechnet, um dem Benutzer anzuzeigen wenn die Flasche leer ist
+            json_data['Valves']['ValveConfig'][ list( valve_names )[i] ]['Volume'] = json_data['Valves']['ValveConfig'][ list( valve_names )[i] ]['Volume'] - int( amount[i][0] )
+        safe_json()
         time_start = time.time()
         Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
         
@@ -121,11 +151,15 @@ def pump_adc(pump_number, on_off):
     try:
         GPIO_pump = [29, 31, 33, 35, 37, 40] #definieren der GPIOs, an welchen die Pumpen angeschlossen sind
         if(on_off == 1):
-            print("on")
-            GPIO.output(GPIO_pump[pump_number-1], True)
+            try:
+                GPIO.output(GPIO_pump[pump_number-1], True)
+            except:
+                print("on")
         else:
-            print("off")
-            GPIO.output(GPIO_pump[pump_number-1],False)
+            try:
+                GPIO.output(GPIO_pump[pump_number-1],False)
+            except:
+                print("off")
     except:
         print("Fehler")
     
@@ -311,15 +345,15 @@ class FillingScreen(Screen):
     pass
 
     def button_abort(self):
-        global abort_drink
+        global abort_drink, number_of_valves
         abort_drink = 1
-        [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
+        [pump_adc(i, 0) for i in range(1, number_of_valves + 1)]
         self.frameworktext.text = "Abbruch"
         Clock.schedule_once(partial(self.back_to_home), 2)  #durch aktive Interrupts (alle 0.5 Sekunden) kann es passieren, dass ein Getränk wieder eingeschaltet wird. Daher muss hier für 2 Sekunden abort_drink auf 1 bleiben
         print("Abbrechen")
 
     def abort_second_time(self):
-        [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
+        [pump_adc(i, 0) for i in range(1, number_of_valves + 1)]
         global abort_drink
         abort_drink = 0
         self.back_to_home()
@@ -338,7 +372,16 @@ class FillingScreen(Screen):
             Clock.schedule_once(partial(self.filled_finished), 1)
 
     def back_to_home(self, example):
-        self.parent.current = 'menu'
+        #!! Abfrage ob Flasche leer hinzufügen
+        global json_data
+        valve_names = json_data['Valves']['ValveConfig'].keys()
+        volume_left = [ json_data['Valves']['ValveConfig'][i]['Volume'] for i in valve_names]    #checken in welchen Ventilen Alkohol ist, um die Stärke anzupassen
+
+        if( min( volume_left) < 100):    #wenn unter 100 Milliliter in einem Gefäß sind
+            print("Attention: One Bottle may be empty")
+            self.parent.current = 'attention_bottle_empty'
+        else:
+            self.parent.current = 'menu'
 
     def on_pre_enter(self):
         global cocktail_configuration_selected
@@ -362,7 +405,7 @@ class SettingsScreen(Screen):
             self.parent.current = 'settings_add_drink'
 
         if (id == 2):
-            shutdown()
+            self.parent.current = 'settings_ventil_screen'
 
         if (id == 3):
             self.parent.current = 'settings_change_pin'
@@ -370,6 +413,8 @@ class SettingsScreen(Screen):
         if (id == 4):
             self.parent.current = 'settings_clean'
 
+    def button_shutdown(self):
+        shutdown()
     def back(self):
         self.parent.current = 'menu'
         
@@ -598,8 +643,9 @@ class SettingsNameContentsScreen(Screen):
     screen_site = 0
     new = 0
     cocktail_name_before = 0
-
-    ventil_percentage = [0] * pump_numbers
+    
+    global number_of_valves
+    ventil_percentage = [0] * number_of_valves
     current_pump_selected = 0
     pass
 
@@ -650,8 +696,7 @@ class SettingsNameContentsScreen(Screen):
         
 
     def button_left_pressed(self):
-        global json_data
-        number_of_valves = json_data['Valves']
+        global json_data, number_of_valves
         if (self.screen_site == 0):
             self.screen_site = round(number_of_valves / 2) - 1
         else:
@@ -660,8 +705,7 @@ class SettingsNameContentsScreen(Screen):
         print("left")
 
     def button_right_pressed(self):
-        global json_data
-        number_of_valves = json_data['Valves']
+        global json_data, number_of_valves
         if(self.screen_site == (round(number_of_valves / 2) - 1) ):
             self.screen_site = 0
         else:
@@ -671,13 +715,18 @@ class SettingsNameContentsScreen(Screen):
 
 
     def update_valve_names(self):
-        self.box_1_text.text = "Ventil " + str(self.screen_site * 2 + 1)
-        self.box_2_text.text = "Ventil " + str(self.screen_site * 2 + 2)
+        global json_data
+        valve_names = json_data['Valves']['ValveConfig'].keys()
+        bottle_names = list()
+        [bottle_names.append( json_data['Valves']['ValveConfig'][i]['Name'] ) for i in valve_names]
+
+        self.box_1_text.text = bottle_names[ self.screen_site * 2 ]
+        self.box_2_text.text = bottle_names[ self.screen_site * 2 + 1 ]
         self.box_1_percentage.text = str(self.ventil_percentage[self.screen_site * 2]) + "%"
         self.box_2_percentage.text = str(self.ventil_percentage[self.screen_site * 2 + 1]) + "%"
 
     def button_safe(self):
-        global json_data
+        global json_data, number_of_valves
 
         summe = sum(self.ventil_percentage)
         unique_name = 1 #wird ein neuer Cocktail angelegt, ist die Frage ob der Name neu ist, asonsten würde ein bereits vorhandener Cocktail überschrieben
@@ -721,10 +770,10 @@ class SettingsNameContentsScreen(Screen):
         self.parent.current = "settings_add_drink"
 
     def initialize(self, cocktail_name, is_new):
+        global number_of_valves
         self.new = is_new
         self.cocktail_name_before = cocktail_name
         global json_data
-        number_of_valves = json_data['Valves']
         if( self.new == 1):
             self.buttonok.text = "Hinzufügen"
             self.ventil_percentage = [0] * number_of_valves
@@ -744,6 +793,184 @@ class SettingsNameContentsScreen(Screen):
         self.box_1_percentage.text = str(self.ventil_percentage[0]) + "%"
         self.box_2_percentage.text = str(self.ventil_percentage[1]) + "%"
 
+
+#!<--------- Screen zum einstellen der Getränke ----------->!#
+class SettingsVentilScreen(Screen):     
+    button1 = ObjectProperty(None)
+    button2 = ObjectProperty(None)
+    button3 = ObjectProperty(None)
+    button4 = ObjectProperty(None)
+    container = ObjectProperty(None)
+    button_left_down = ObjectProperty(None)
+    framework_text = ObjectProperty(None)
+
+    screen_site = 0    #Seite auf welcher sich der Bildschrim befindet (Wenn In der Liste hoch oder runter gescrollt wird)
+
+    selecter_settings_drinks_screen = 0
+    pass
+
+    def bottle_selected(self, text, id):
+        print(text + " was pressed")
+        valve_selected = self.screen_site * 4 + id
+        print("test")
+        global application
+        application.settings_ventil_content.valve_selected = valve_selected
+        self.parent.current = "settings_ventil_content_screen"
+
+
+    def next_drinks_up(self):
+        global number_of_valves
+        number_of_drinks = number_of_valves
+        if (self.screen_site == 0):
+            self.screen_site = round(0.49 + (number_of_drinks / 4) )- 1
+        else:
+            self.screen_site -= 1
+        self.update_drink_names()
+        print("up")
+
+    def next_drinks_down(self):
+        global number_of_valves
+        number_of_drinks = number_of_valves
+        if(self.screen_site == (round(0.49 + (number_of_drinks / 4) )- 1) ):
+            self.screen_site = 0
+        else:
+            self.screen_site += 1
+        self.update_drink_names()
+        print("down")
+
+    def back(self):
+        self.parent.current = 'settings'
+        #self.parent.transition.direction = 'left'
+
+
+
+
+    def update_drink_names(self):
+        global json_data, number_of_valves
+
+        valve_names = json_data['Valves']['ValveConfig'].keys()
+        bottle_names = list()
+        [bottle_names.append( json_data['Valves']['ValveConfig'][i]['Name'] ) for i in valve_names]
+
+
+        ventil_names = ['Ventil 1', 'Ventil 2', 'Ventil 3', 'Ventil 4', 'Ventil 5', 'Ventil 6' ]
+        
+        cocktail_names = list()
+        [cocktail_names.append( ventil_names[i] + "\n" + bottle_names[i]) for i in range(0, number_of_valves)]
+
+        cocktails_number = 4 * self.screen_site
+        menu_screens = [self.button1, self.button2, self.button3, self.button4]
+        for i in menu_screens:
+            i.text = ""
+            i.disabled = True
+
+        if((len(cocktail_names)-cocktails_number)> 3):
+            cocktails_number_max = 3
+        else:
+            cocktails_number_max = len(cocktail_names) - cocktails_number - 1
+        for i in range(0, cocktails_number_max + 1):
+            menu_screens[i].text = cocktail_names[i+cocktails_number]
+            menu_screens[i].disabled = False
+
+    def on_pre_enter(self):
+        self.update_drink_names()
+
+
+class SettingsVentilContent(Screen):
+    frameworktext = ObjectProperty(None)
+    buttonok = ObjectProperty(None)
+    cocktail_name = ObjectProperty(None)
+    is_alcoholic = ObjectProperty(None)
+    box_1_text = ObjectProperty(None)
+    box_1_plus = ObjectProperty(None)
+    box_1_minus = ObjectProperty(None)
+
+    box_text = 0
+    valve_selected = 0
+    content_ml = 0
+
+    pass
+
+
+    def on_pre_enter(self):
+        self.frameworktext.text = "Einstellungen Ventil" + str(self.valve_selected)
+        self.frameworktext.color = 1, 1, 1, 1
+        global json_data
+        self.box_1_text.text = str( json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Volume'] ) + 'ml'
+        self.cocktail_name.text = json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Name']
+
+        if( json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Alcohol'] == 1):
+            self.is_alcoholic.state = 'down'
+        else:
+            self.is_alcoholic.state = 'normal'
+
+    def change_digits(self, sign_id, stop):   #sign_id = 2: plus, sign_id = 1: minus
+        self.box_text = self.box_1_text
+        if (sign_id == 1) and (stop == 0):
+            self.decrease_digit(0)
+            Clock.schedule_interval(self.decrease_digit, 0.1)
+        elif (sign_id == 1) and (stop == 1):
+            Clock.unschedule(self.decrease_digit, 0.1)
+        elif (sign_id == 2) and (stop == 0):
+            self.increase_digit(0)
+            Clock.schedule_interval(self.increase_digit, 0.1)
+        else:
+            Clock.unschedule(self.increase_digit, 0.1)
+
+    def decrease_digit(self, dt):
+        current_percentage = int(self.box_text.text[:-2])
+        if(current_percentage > 0):
+            if( (current_percentage  % 50) == 0):
+                current_percentage -= 50
+            else:
+                current_percentage  -= current_percentage  % 50
+            self.box_text.text = str(current_percentage) + "ml"
+        self.content_ml = current_percentage
+
+    def increase_digit(self, dt):
+        current_percentage = int(self.box_text.text[:-2])
+        current_percentage += 50 - (current_percentage % 50)
+        self.box_text.text = str(current_percentage) + "ml"
+        self.content_ml = current_percentage
+
+
+    def button_safe(self):
+        print("safe")
+        global json_data
+
+        unique_name = 1 #wird ein neuer Cocktail angelegt, ist die Frage ob der Name neu ist, asonsten würde ein bereits vorhandener Cocktail überschrieben
+
+        valve_names = json_data['Valves']['ValveConfig'].keys()
+        bottle_names = list()
+        [bottle_names.append( json_data['Valves']['ValveConfig'][i]['Name'] ) for i in valve_names]
+        bottle_names.remove( json_data['Valves']['ValveConfig']['Valve' + str(self.valve_selected)]['Name'] )
+        if( self.cocktail_name.text in bottle_names ):
+            unique_name = 0
+
+        if( unique_name == 0 ):
+            self.frameworktext.text = "Name schon vorhanden"
+            self.frameworktext.color = 1, 0, 0, 1
+            print("Name schon vorhanden")
+        else:
+            json_data['Valves']['ValveConfig']['Valve' + str(self.valve_selected)]['Name'] = self.cocktail_name.text
+            json_data['Valves']['ValveConfig']['Valve' + str(self.valve_selected)]['Volume'] = int( self.box_1_text.text[:-2] )
+            if( self.is_alcoholic.state == 'down'):
+                json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Alcohol'] = 1
+            else:
+                json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Alcohol'] = 1
+            
+            
+            print(self.cocktail_name.text)
+            print("abgeschlossen")
+            self.parent.current = "settings_ventil_screen"
+
+
+    def button_back(self):
+        self.parent.current = "settings_ventil_screen"
+
+    
+
+#!<--------- Screen zum einstellen der Getränke Ende ----------->!#
 
 class SettingsCleanScreen(Screen):
     drinks = ObjectProperty(None)
@@ -784,7 +1011,8 @@ class SelectVentilScreen(Screen):
 
 
     def next_drinks_up(self):
-        number_of_drinks = pump_numbers
+        global number_of_valves
+        number_of_drinks = number_of_valves
         if (self.screen_site == 0):
             self.screen_site = round(0.49 + (number_of_drinks / 4) )- 1
         else:
@@ -793,7 +1021,8 @@ class SelectVentilScreen(Screen):
         print("up")
 
     def next_drinks_down(self):
-        number_of_drinks = pump_numbers
+        global number_of_valves
+        number_of_drinks = number_of_valves
         if(self.screen_site == (round(0.49 + (number_of_drinks / 4) )- 1) ):
             self.screen_site = 0
         else:
@@ -809,9 +1038,9 @@ class SelectVentilScreen(Screen):
 
 
     def update_drink_names(self):
-        global json_data
+        global json_data, number_of_valves
 
-        cocktail_names = ["Ventil " + str(i) for i in range(1, pump_numbers + 1)]
+        cocktail_names = ["Ventil " + str(i) for i in range(1, number_of_valves + 1)]
 
         cocktails_number = 4 * self.screen_site
         menu_screens = [self.button1, self.button2, self.button3, self.button4]
@@ -891,7 +1120,8 @@ class EmptyAllBottleScreen(Screen):
         self.set_pumps()
 
     def set_pumps(self):
-        [pump_adc(i, self.on_off) for i in range(1, pump_numbers + 1)]
+        global number_of_valves
+        [pump_adc(i, self.on_off) for i in range(1, number_of_valves + 1)]
 
     def on_pre_enter(self):
         if(self.on_off == 0):
@@ -899,6 +1129,37 @@ class EmptyAllBottleScreen(Screen):
         else:
             self.buttonok.text = "Ventile schließen"
 
+class AttentionBottleEmpty(Screen):
+    frameworktext = ObjectProperty(None)
+    buttonok = ObjectProperty(None)
+    cocktail_name = ObjectProperty(None)
+    text = ObjectProperty(None)
+
+    box_text = 0
+    valve_selected = 1
+    content_ml = 0
+
+    pass
+
+
+    def on_pre_enter(self):
+        self.frameworktext.text = "Achtung, eine Flasche ist bald leer!"
+        self.frameworktext.color = 1, 1, 1, 1
+
+        global json_data, number_of_valves
+        valve_names = json_data['Valves']['ValveConfig'].keys()
+        bottle_names = [ json_data['Valves']['ValveConfig'][i]['Name'] for i in valve_names] 
+        volume_left = [ json_data['Valves']['ValveConfig'][i]['Volume'] for i in valve_names] 
+        text_ouput = ""
+        for i in range(0, number_of_valves):
+            text_ouput = text_ouput + bottle_names[i] + ":    " + str( volume_left[i] ) + "ml\n"
+        self.volume_text.text = text_ouput
+        
+
+    def button_ok(self):
+        self.parent.current = "menu"
+
+    
 
 
 class Float_LayoutApp(App):
@@ -913,6 +1174,7 @@ class Float_LayoutApp(App):
     settings_clean = 0
     setting_empty_bottle = 0
     settings_empty_all_bottle = 0
+    settings_ventil = 0
 
     def build(self):
         # Create the screen manager
@@ -932,6 +1194,9 @@ class Float_LayoutApp(App):
         self.settings_clean_ventil = SelectVentilScreen(name='settings_chose_ventil')
         self.setting_empty_bottle = EmptyBottleScreen(name='setting_empty_bottle')
         self.settings_empty_all_bottle = EmptyAllBottleScreen(name='settings_empty_all_bottle')
+        self.settings_ventil = SettingsVentilScreen(name='settings_ventil_screen')
+        self.settings_ventil_content = SettingsVentilContent(name='settings_ventil_content_screen')
+        self.attention_bottle_empty = AttentionBottleEmpty(name='attention_bottle_empty')
 
         sm = ScreenManager(transition=FadeTransition(clearcolor=[0, 0, 0, 1], duration=0.25)) #ScreenManager(transition=SlideTransition())
         sm.add_widget(self.menu_screen)
@@ -949,6 +1214,9 @@ class Float_LayoutApp(App):
         sm.add_widget(self.setting_empty_bottle)
         sm.add_widget(self.settings_empty_all_bottle)
         sm.add_widget(self.settings_clean_ventil)
+        sm.add_widget(self.settings_ventil)
+        sm.add_widget(self.settings_ventil_content)
+        sm.add_widget(self.attention_bottle_empty)
         
 
         return sm
@@ -964,12 +1232,12 @@ if __name__ == "__main__":
     with open('cocktail_data.json') as json_file:
         json_data = json.load(json_file)
 
-    GPIO_init()
     import collections
     json_data = collections.OrderedDict(json_data)
 
-    global number_of_valves
-    number_of_valves = json_data['Valves']
+    number_of_valves = json_data['Valves']['number_of']
+
+    GPIO_init()
     global application
     application = Float_LayoutApp()
     application.run()
