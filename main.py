@@ -18,7 +18,18 @@ from kivy.clock import mainthread, Clock
 import json
 import sched, time
 from functools import partial
-#from gpiozero import LED
+
+#!<-------- Raspberry-Pi specific ------------->!
+import RPi.GPIO as GPIO
+
+def GPIO_init():
+    GPIO.setmode(GPIO.BOARD)
+    
+    GPIO_pump = [29, 31, 33, 35, 37, 40] #definieren der GPIOs, an welchen die Pumpen angeschlossen sind
+    [GPIO.setup(i,GPIO.OUT) for i in GPIO_pump] 
+    [GPIO.output(i,False) for i in GPIO_pump]
+
+#!<-------------------------------------------->!
 
 from kivy.config import Config
 
@@ -108,13 +119,13 @@ def pump_drink_adc(amount, time_start, test):     #hier wird überprüft ob eine
 def pump_adc(pump_number, on_off):
     print("Ventil: " + str(pump_number) + " Zustand: " + str(on_off))   
     try:
-        pumps = [LED(5), LED(6), LED(13), LED(19), LED(26), LED(21)]
+        GPIO_pump = [29, 31, 33, 35, 37, 40] #definieren der GPIOs, an welchen die Pumpen angeschlossen sind
         if(on_off == 1):
             print("on")
-            pumps[pump_number-1].on()
+            GPIO.output(GPIO_pump[pump_number-1], True)
         else:
             print("off")
-            pumps[pump_number-1].off()
+            GPIO.output(GPIO_pump[pump_number-1],False)
     except:
         print("Fehler")
     
@@ -949,11 +960,11 @@ class Float_LayoutApp(App):
 
 # run the app
 if __name__ == "__main__":
-    [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
     global json_data
     with open('cocktail_data.json') as json_file:
         json_data = json.load(json_file)
 
+    GPIO_init()
     import collections
     json_data = collections.OrderedDict(json_data)
 
