@@ -125,39 +125,6 @@
 
 
 
-<MyTextInput@TextInput>:
-    font_size: 40
-    background_color: 1,1,1,1
-    cursor_color: 1, 1, 1, 1
-    canvas.before:
-        Color:
-            rgba: 0, 0, 0, 1
-    canvas.after:
-        Color:
-            rgb: 0, 0, 0, 1
-        Ellipse:
-            angle_start:180
-            angle_end:360
-            pos:(self.pos[0] - self.size[1]/2.0, self.pos[1])
-            size: (self.size[1], self.size[1])
-        Ellipse:
-            angle_start:360
-            angle_end:540
-            pos: (self.size[0] + self.pos[0] - self.size[1]/2.0, self.pos[1])
-            size: (self.size[1], self.size[1])
-        Color:
-            rgba: 0.25, 0.57, 0.86, 1
-        Line:
-            points: self.pos[0] , self.pos[1], self.pos[0] + self.size[0], self.pos[1]
-        Line:
-            points: self.pos[0], self.pos[1] + self.size[1], self.pos[0] + self.size[0], self.pos[1] + self.size[1]
-        Line:
-            ellipse: self.pos[0] - self.size[1]/2.0, self.pos[1], self.size[1], self.size[1], 180, 360
-        Line:
-            ellipse: self.size[0] + self.pos[0] - self.size[1]/2.0, self.pos[1], self.size[1], self.size[1], 360, 540
-
-
-
 #<------------- Screens -------------->
 
 <MenuScreen>:
@@ -1492,11 +1459,11 @@
 
 	
 	StrengthButton:
-		text: "Der morgen danach … eklig, aber da muss man\ndurch. Sobald du auf den Knopf untendrückst,\nöffnen sich alle Ventile. Dann kannst du\nalle Flaschen und Leitungen mit Wasser\ndurchspülen.\nTipp: Leere davor alle Gefäße mit dem\nMenüpunkt \"Gefäß leeren\""
+		text: "Der morgen danach … eklig, aber da muss man\ndurch. Sobald du auf den Knopf unten drückst,\nöffnen sich alle Ventile. Dann kannst du\nalle Flaschen und Leitungen mit Wasser\ndurchspülen.\nTipp: Leere davor alle Gefäße mit dem\nMenüpunkt \"Gefäß leeren\""
 		id: infotext
 		color: 0, 0, 0, 1
 		background_color: 1, 1, 1, 1
-		font_size: 32
+		font_size: 30
 
 		# positioned at 0 % right and 100 % up / top
 		# from bottom left, i.e x, top = 0, 100 from bottom left:

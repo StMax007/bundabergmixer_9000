@@ -41,8 +41,9 @@ abort_drink = 0 # ist 1, wenn beim abfüllen des Getränks auf Abbrechen gedrüc
 
 def shutdown():
     print("shutdown")
-    #from subprocess import call
-    #call("sudo nohup shutdown -h now", shell=True)
+    [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
+    from subprocess import call
+    call("sudo nohup shutdown -h now", shell=True)
 
 #<----------------- GPIO-Controlling ---------------------->
 def mix_drink():
@@ -107,13 +108,13 @@ def pump_drink_adc(amount, time_start, test):     #hier wird überprüft ob eine
 def pump_adc(pump_number, on_off):
     print("Ventil: " + str(pump_number) + " Zustand: " + str(on_off))   
     try:
-        #led = LED(17)
+        pumps = [LED(5), LED(6), LED(13), LED(19), LED(26), LED(21)]
         if(on_off == 1):
             print("on")
-            #led.on()
+            pumps[pump_number-1].on()
         else:
             print("off")
-            #led.off()
+            pumps[pump_number-1].off()
     except:
         print("Fehler")
     
@@ -160,7 +161,7 @@ class MenuScreen(Screen):
 
     def drink_selected(self, text, id):
         if (self.selecter_settings_drinks_screen == 1):
-            print("moin")
+            print("go to setting")
             self.parent.current = 'pin_input'
         else:
             print(text + " was pressed")
@@ -849,8 +850,10 @@ class EmptyBottleScreen(Screen):
     def on_pre_enter(self):
         if(self.on_off == 0):
             self.buttonok.text = "Ventil " + str(self.ventil_number) + " öffnen"
+            self.buttonok.background_color = (0, 0.81, 0, 1)
         else:
             self.buttonok.text = "Ventil " + str(self.ventil_number) + " schließen"
+            self.buttonok.background_color = (1, 0.31, 0, 1)
 
 class EmptyAllBottleScreen(Screen):
     frameworktext = ObjectProperty(None)
@@ -944,9 +947,9 @@ class Float_LayoutApp(App):
         #self.settings_config_drinks.update_drink_names()
         print("start")
 
-global application
 # run the app
 if __name__ == "__main__":
+    [pump_adc(i, 0) for i in range(1, pump_numbers + 1)]
     global json_data
     with open('cocktail_data.json') as json_file:
         json_data = json.load(json_file)
