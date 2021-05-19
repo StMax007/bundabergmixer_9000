@@ -82,8 +82,8 @@ def mix_drink():
                 3: 350
              }
     alcohol_factors = {
-        1: 0.5,
-        2: 1,
+        1: 1,
+        2: 1.5,
         3: 2
     }
     glass_size = cocktail_sizes.get(cocktail_configuration_selected[2])
@@ -342,15 +342,17 @@ class FillingScreen(Screen):
     abort = ObjectProperty(None)
     image = ObjectProperty(None)
     filled_is_finished = 0
+    abort = 0   #ist 1, wenn auf Abbrechen gedrückt wurde
     pass
 
     def button_abort(self):
         global abort_drink, number_of_valves
-        abort_drink = 1
-        [pump_adc(i, 0) for i in range(1, number_of_valves + 1)]
-        self.frameworktext.text = "Abbruch"
-        Clock.schedule_once(partial(self.back_to_home), 2)  #durch aktive Interrupts (alle 0.5 Sekunden) kann es passieren, dass ein Getränk wieder eingeschaltet wird. Daher muss hier für 2 Sekunden abort_drink auf 1 bleiben
-        print("Abbrechen")
+        if(abort_drink == 0):   #Der Button darf nur einmal gedrückt werden, wird er zweimal oder öfters gedrückt, so kann ein Fehler durch den Clock.schedule_once-Aufruf geschehen
+            abort_drink = 1
+            [pump_adc(i, 0) for i in range(1, number_of_valves + 1)]
+            self.frameworktext.text = "Abbruch"
+            Clock.schedule_once(partial(self.back_to_home), 2)  #durch aktive Interrupts (alle 0.5 Sekunden) kann es passieren, dass ein Getränk wieder eingeschaltet wird. Daher muss hier für 2 Sekunden abort_drink auf 1 bleiben
+            print("Abbrechen")
 
     def abort_second_time(self):
         [pump_adc(i, 0) for i in range(1, number_of_valves + 1)]
@@ -379,12 +381,13 @@ class FillingScreen(Screen):
 
         if( min( volume_left) < 100):    #wenn unter 100 Milliliter in einem Gefäß sind
             print("Attention: One Bottle may be empty")
-            self.parent.current = 'attention_bottle_empty'
+            self.parent.current = 'attention_bottle_empty_screen'
         else:
             self.parent.current = 'menu'
 
     def on_pre_enter(self):
-        global cocktail_configuration_selected
+        global cocktail_configuration_selected, abort_drink
+        abort_drink = 0
         self.frameworktext.text = cocktail_configuration_selected[3] + " wird zubereitet"
         self.image.source = 'party_hard.jpg'
         self.abort.opacity = 1
@@ -858,6 +861,8 @@ class SettingsVentilScreen(Screen):
         cocktail_names = list()
         [cocktail_names.append( ventil_names[i] + "\n" + bottle_names[i]) for i in range(0, number_of_valves)]
 
+        volume_left = [ json_data['Valves']['ValveConfig'][i]['Volume'] for i in valve_names]    #checken in welchen Ventilen wie viel Liter ist, um die Flaschen mit wenig Inhalt rot anzuzeigen
+
         cocktails_number = 4 * self.screen_site
         menu_screens = [self.button1, self.button2, self.button3, self.button4]
         for i in menu_screens:
@@ -871,6 +876,11 @@ class SettingsVentilScreen(Screen):
         for i in range(0, cocktails_number_max + 1):
             menu_screens[i].text = cocktail_names[i+cocktails_number]
             menu_screens[i].disabled = False
+            
+            if( volume_left[i] < 100):            #ist unter 100 Milliliter im Getränk ist der Hintergrund rot, ansonsten grün
+                menu_screens[i].background_color = (1, 0.31, 0, 1)
+            else:
+                menu_screens[i].background_color = (0, 0.81, 0, 1)
 
     def on_pre_enter(self):
         self.update_drink_names()
@@ -1196,9 +1206,10 @@ class Float_LayoutApp(App):
         self.settings_empty_all_bottle = EmptyAllBottleScreen(name='settings_empty_all_bottle')
         self.settings_ventil = SettingsVentilScreen(name='settings_ventil_screen')
         self.settings_ventil_content = SettingsVentilContent(name='settings_ventil_content_screen')
-        self.attention_bottle_empty = AttentionBottleEmpty(name='attention_bottle_empty')
+        self.attention_bottle_empty = AttentionBottleEmpty(name='attention_bottle_empty_screen')
 
         sm = ScreenManager(transition=FadeTransition(clearcolor=[0, 0, 0, 1], duration=0.25)) #ScreenManager(transition=SlideTransition())
+        
         sm.add_widget(self.menu_screen)
         sm.add_widget(self.strength_screen)
         sm.add_widget(self.size_screen)
