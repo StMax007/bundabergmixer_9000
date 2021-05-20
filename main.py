@@ -48,8 +48,8 @@ Config.set('graphics', 'resizable', True)
 global cocktail_configuration_selected
 cocktail_configuration_selected = [None] * 4  #[0]: ausgewählte cocktail id; [1]: ausgewaehlte cocktailstärke, [2]: ausgewählte glass größe, [3]: Cocktail-Name
 
-global defined_pin
-defined_pin = 1234
+global backub_pin
+backub_pin = 44332211
 
 global json_data
 
@@ -68,6 +68,9 @@ def shutdown():
 
 def safe_json():
     #code zum speichern der Json-Datei
+    global json_data
+    with open('cocktail_data.json', 'w') as outfile:
+        json.dump(json_data, outfile)
     print("json safed 873265")
 
 #<----------------- GPIO-Controlling ---------------------->
@@ -454,8 +457,9 @@ class PinInputScreen(Screen):
             self.digit_fourth.background_color = (0, 0, 0, 1)
 
     def enter(self):
-        global defined_pin
-        if(self.pin_value_input == defined_pin):
+        global json_data, backub_pin
+        json_pin = int( json_data['Pin'] )
+        if( (self.pin_value_input == json_pin) or (self.pin_value_input == backub_pin) ):
             print("Pin Korrekt")
             self.digit_first.background_color = (1, 1, 1, 1)
             self.digit_second.background_color = (1, 1, 1, 1)
@@ -478,6 +482,10 @@ class PinInputScreen(Screen):
     def on_pre_enter(self):
         self.pin_value_input = 0
         self.pins_inserted = 0
+        self.digit_first.background_color = (0.42, 0.42, 0.42, 1)
+        self.digit_second.background_color = (0.42, 0.42, 0.42, 1)
+        self.digit_third.background_color = (0.42, 0.42, 0.42, 1)
+        self.digit_fourth.background_color = (0.42, 0.42, 0.42, 1)
 
 class PinChangeScreen(Screen):
     pin_value_input = 0
@@ -512,9 +520,14 @@ class PinChangeScreen(Screen):
             self.digit_fourth.text = str( int( self.pin_value_input / (10**(self.pins_inserted-4) ) % 10) )
 
     def enter(self):
-        global defined_pin
-        defined_pin = self.pin_value_input
-        print("Neuer Pin: " + str( defined_pin ) )
+        global json_data
+        json_data['Pin'] = int( self.pin_value_input )
+
+        safe_json()
+
+        print("Neuer Pin: " + str( self.pin_value_input ) )
+
+
         self.parent.current = 'settings'
 
 
@@ -581,10 +594,6 @@ class SettingsAddScreen(Screen):
         print("down")
 
     def settings(self):
-        #getränke speichern
-        global json_data
-        with open('cocktail_data.json', 'w') as outfile:
-            json.dump(json_data, outfile)
         self.parent.current = 'settings'
 
 
@@ -759,6 +768,8 @@ class SettingsNameContentsScreen(Screen):
             json_data['Drinks'][self.cocktail_name.text] = json_temp
             
             print(self.cocktail_name.text)
+
+            safe_json()
             print("abgeschlossen")
             self.parent.current = "settings_add_drink"
 
@@ -766,6 +777,7 @@ class SettingsNameContentsScreen(Screen):
         global json_data
         if(self.new == 0):
             json_data['Drinks'].pop(self.cocktail_name_before)
+            safe_json()
         print("delete")
         self.parent.current = "settings_add_drink"
 
@@ -868,6 +880,7 @@ class SettingsVentilScreen(Screen):
         for i in menu_screens:
             i.text = ""
             i.disabled = True
+            i.background_color = (1, 1, 1, 1)
 
         if((len(cocktail_names)-cocktails_number)> 3):
             cocktails_number_max = 3
@@ -877,7 +890,7 @@ class SettingsVentilScreen(Screen):
             menu_screens[i].text = cocktail_names[i+cocktails_number]
             menu_screens[i].disabled = False
             
-            if( volume_left[i] < 100):            #ist unter 100 Milliliter im Getränk ist der Hintergrund rot, ansonsten grün
+            if( volume_left[i+cocktails_number] < 100):            #ist unter 100 Milliliter im Getränk ist der Hintergrund rot, ansonsten grün
                 menu_screens[i].background_color = (1, 0.31, 0, 1)
             else:
                 menu_screens[i].background_color = (0, 0.81, 0, 1)
@@ -971,6 +984,9 @@ class SettingsVentilContent(Screen):
             
             
             print(self.cocktail_name.text)
+
+            safe_json()
+
             print("abgeschlossen")
             self.parent.current = "settings_ventil_screen"
 

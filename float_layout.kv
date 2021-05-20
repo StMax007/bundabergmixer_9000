@@ -583,6 +583,17 @@
 			root.button_selected(self.text, 1)
 
 
+	CocktailButton:
+		id: bottle_settings
+		text: "Flaschen"
+		
+
+		# positioned at 0 % right and 100 % up / top
+		# from bottom left, i.e x, top = 0, 100 from bottom left:
+		pos_hint: {"x":0.55, "top":0.7}
+
+		on_release:
+			root.button_selected(self.text, 2)
 
 	CocktailButton:
 		id: cleaning
@@ -590,7 +601,7 @@
 
 		# positioned at 0 % right and 100 % up / top
 		# from bottom left, i.e x, top = 0, 100 from bottom left:
-		pos_hint: {"x":0.55, "top":0.7}
+		pos_hint: {"x":0.05, "top":0.45}
 
 		on_release:
 			root.button_selected(self.text, 4)
@@ -602,22 +613,12 @@
 
 		# positioned at 0 % right and 100 % up / top
 		# from bottom left, i.e x, top = 0, 100 from bottom left:
-		pos_hint: {"x":0.05, "top":0.45}
+		pos_hint: {"x":0.55, "top":0.45}
 
 		on_release:
 			root.button_selected(self.text, 3)
 
-	CocktailButton:
-		id: bottle_settings
-		text: "Flaschen"
-		
-
-		# positioned at 0 % right and 100 % up / top
-		# from bottom left, i.e x, top = 0, 100 from bottom left:
-		pos_hint: {"x":0.55, "top":0.45}
-
-		on_release:
-			root.button_selected(self.text, 2)
+	
 
 	FrameworkButtonLeft:
 		text: "zurück"
@@ -629,7 +630,7 @@
 		id: button_right_down
 		text: "Ausschalten"
 		background_disabled_normal: 'normal.png'
-		pos_hint: {"x":0.75, "top":0.15}
+		pos_hint: {"x":0.7, "top":0.15}
 		color: 1,1,1,1
 		background_color: 1, 0.31, 0, 1
 		on_release:
@@ -1394,7 +1395,7 @@
 			
 	FrameworkLabel:
 		id: frameworktext
-		text: "Drink leeren"
+		text: "Flasche leeren"
 		
 
 	FrameworkLogo:
