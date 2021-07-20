@@ -104,14 +104,23 @@ def mix_drink():
                 volume = volume * alcohol_factor
             amount.append([volume, i] )   #2-Diemsnionale Liste bestehen aus der Menge am Anfang und der Pumpennummer anschließend
             pump_drink(i, amount[-1])
-            if(amount[-1][0] > 0):                 #hier werden alle benötigten Pumpen aktiviert
-                pump_adc(i-1, 1)
+            #if(amount[-1][0] > 0):                 #hier werden alle benötigten Pumpen aktiviert
+            #    pump_adc(i-1, 1)
 
         for i in range(0, number_of_valves):# Die Milliliter, die aus den Getränken fliesen werden aus der json_config pro Getränk raus gerechnet, um dem Benutzer anzuzeigen wenn die Flasche leer ist
             json_data['Valves']['ValveConfig'][ list( valve_names )[i] ]['Volume'] = json_data['Valves']['ValveConfig'][ list( valve_names )[i] ]['Volume'] - int( amount[i][0] )
         safe_json()
-        time_start = time.time()
-        Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
+        
+        time_start = list()
+
+        for i in range(0, len(amount)):
+            if( amount[i][0] > 0):
+                time_start.append( [0, 1, amount[i][1] ])
+            else:
+                time_start.append( [ 0, 0, amount[i][1] ] )
+
+        time_last_pump = time.time() - 2
+        Clock.schedule_once(partial(pump_drink_adc, amount, time_start, time_last_pump), 0.5)
         
         # s = sched.scheduler(time.time, time.sleep)
         # s.enter(0.5, 1, pump_drink_adc, argument=(amount,time_start, s))  #alle 10 Sekunden wurd pump_drink_adc ausgeführt
@@ -124,26 +133,39 @@ def mix_drink():
 def pump_drink(pump_number, milliliter):
     print("Pumpe" + str(pump_number) + " mit " + str(milliliter) + " Milliliter")
 
-def pump_drink_adc(amount, time_start, test):     #hier wird überprüft ob eine Pumpe ausgeschaltet werden muss
-    global abort_drink
+def pump_drink_adc(amount, time_start, time_last_pump, test):     #hier wird überprüft ob eine Pumpe ausgeschaltet werden muss
+    global abort_drink, number_of_valves
     if(abort_drink == 0):
-        time_diff = time.time() - time_start
-        ventil_factor = 0.1   #Faktor, der aus einer Zeit die Amount of Milliliter errechnet --> muss mit den Ventilen erarbeitet werden wie groß der Faktor ist
-        amount_flowed = time_diff / ventil_factor
-        amount_extracted = [i[0] for i in amount]
-        while(min(amount_extracted) <= amount_flowed):
-            row_min = amount_extracted.index( min(amount_extracted) )
-            ventil_nummer = amount[row_min][1] #Ventil Nummer mit dem geringsten Amount, Anfangend bei 0
-            pump_adc(ventil_nummer, 0)
-            del amount[row_min]
-            if not amount:      #wenn Liste amount leer ist
-                print("Auf StartBildschirm zurück!")        #! Ändern
+        # Ventile einschalten
+        if( ( time.time() - time_last_pump) > 2 ):
+            for i in time_start:
+                if( (i[0] == 0) & (i[1] == 1) ):    #i[0] = Zeit zu der das Ventil eingeschalten wurde --> war es bisher noch aus steht 0 drinnen. i[1] = 1 wenn das ventil benutzt wird (mehr als 0ml Fluss), ansonsten 0
+                    i[0] = time.time()
+                    pump_adc(i[2], 1)       #i[2] = Ventil-Nummer
+                    time_last_pump = time.time()    # 2ter Timer, der sicherstellt dass nur alle 2 Sekunde ein Ventil eingeschaltet wird 
+                    break
+        
+        #Ventile auschalten
+        for i in range(0, number_of_valves):
+            if( (time_start[i][0] != 0) & (time_start[i][1] == 1) ):        # checkt, ob aus dem Ventil überhaupt Flüssigkeit fliesen soll
+                time_diff = time.time() - time_start[i][0]
+                ventil_factor = 0.1   #Faktor, der aus einer Zeit die Amount of Milliliter errechnet --> muss mit den Ventilen erarbeitet werden wie groß der Faktor ist
+                amount_flowed = time_diff / ventil_factor
+                amount_extracted = amount[i][0]
+
+                if( amount_extracted <= amount_flowed ):
+                    ventil_nummer = time_start[i][2]
+                    pump_adc(ventil_nummer, 0)
+                    time_start[i][1] = 0
+
+        still_flowing = 0       #0, wenn kein Ventil mehr aktiv ist, ansonten 1
+        for i in time_start:
+            if( i[1] == 1 ):
+                still_flowing = 1
                 break
-            amount_extracted = [i[0] for i in amount]
-        if amount:
-            Clock.schedule_once(partial(pump_drink_adc, amount, time_start), 0.5)
-            #s.enter(0.5, 1, pump_drink_adc, argument=(amount,time_start, s))  #alle 0.5 Sekunden wurd pump_drink_adc ausgeführt
-            #s.run()
+        if (still_flowing == 1): 
+            Clock.schedule_once(partial(pump_drink_adc, amount, time_start, time_last_pump), 0.5)
+
         else:
             global application
             application.filling_screen.filled_succesfull(1)
