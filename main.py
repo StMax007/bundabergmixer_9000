@@ -149,7 +149,7 @@ def pump_drink_adc(amount, time_start, time_last_pump, test):     #hier wird üb
         for i in range(0, number_of_valves):
             if( (time_start[i][0] != 0) & (time_start[i][1] == 1) ):        # checkt, ob aus dem Ventil überhaupt Flüssigkeit fliesen soll
                 time_diff = time.time() - time_start[i][0]
-                ventil_factor = 0.1   #Faktor, der aus einer Zeit die Amount of Milliliter errechnet --> muss mit den Ventilen erarbeitet werden wie groß der Faktor ist
+                ventil_factor = 30/500   #Faktor, der aus einer Zeit die Amount of Milliliter errechnet --> muss mit den Ventilen erarbeitet werden wie groß der Faktor ist; hier: in 30 Sekunden fließt 500ml
                 amount_flowed = time_diff / ventil_factor
                 amount_extracted = amount[i][0]
 
@@ -1002,7 +1002,7 @@ class SettingsVentilContent(Screen):
             if( self.is_alcoholic.state == 'down'):
                 json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Alcohol'] = 1
             else:
-                json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Alcohol'] = 1
+                json_data['Valves']['ValveConfig']['Valve'+str(self.valve_selected)]['Alcohol'] = 0
             
             
             print(self.cocktail_name.text)
